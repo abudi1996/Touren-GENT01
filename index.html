@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fahrten">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Fahrten</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f3f4f6}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;overscroll-behavior-x:none}
+header{background:#111827;color:white;padding:18px 16px;padding-top:calc(18px + env(safe-area-inset-top));position:sticky;top:0;z-index:5}
+h1{font-size:22px;margin:0 0 4px}.sub{opacity:.75;font-size:14px}
+main{max-width:620px;margin:auto;padding:12px 14px calc(28px + env(safe-area-inset-bottom))}
+.card{background:white;border-radius:20px;padding:20px;box-shadow:0 4px 18px #00000012;margin-bottom:14px}
+.label{font-size:13px;color:#6b7280}.name{font-size:27px;font-weight:750;margin:5px 0}.address{font-size:18px;line-height:1.35;margin:8px 0 18px}.meta{display:flex;gap:8px;flex-wrap:wrap}
+.badge{background:#eef2ff;border-radius:999px;padding:7px 11px;font-size:13px}.note{background:#fef3c7;color:#92400e;border-radius:10px;padding:9px 11px;font-size:14px;font-weight:650;margin:10px 0 14px}
+button{width:100%;border:0;border-radius:14px;padding:17px 16px;font-size:18px;font-weight:700;cursor:pointer;touch-action:manipulation}.go{background:#16a34a;color:white;margin-top:18px}.next{background:#111827;color:white;margin-top:10px}.secondary{background:#e5e7eb;color:#111827;margin-top:10px;font-size:15px;padding:13px}
+.swipe{display:flex;justify-content:space-between;gap:10px;margin:10px 0;color:#6b7280;font-size:13px}.nav{display:grid;grid-template-columns:1fr 1fr;gap:10px}.nav button{background:#e5e7eb;color:#111827;padding:13px}.progress{height:8px;background:#e5e7eb;border-radius:9px;overflow:hidden;margin:8px 0 14px}.bar{height:100%;background:#16a34a;transition:width .2s}.notice{font-size:13px;color:#6b7280;line-height:1.45}
+.modal{position:fixed;inset:0;z-index:20;background:#11182788;display:flex;align-items:flex-end}.modal[hidden]{display:none}.sheet{background:#f9fafb;width:100%;max-width:620px;margin:auto;border-radius:24px 24px 0 0;max-height:88vh;overflow:auto;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}.sheet h2{font-size:22px;margin:0 0 6px}.sheet p{color:#4b5563;font-size:14px;line-height:1.4;margin:0 0 14px}.route-list{display:grid;gap:9px;margin:12px 0}.route-stop{display:flex;gap:12px;align-items:flex-start;background:white;border-radius:14px;padding:13px;box-shadow:0 1px 5px #0000000d}.route-stop input{width:22px;height:22px;margin:2px 0 0;accent-color:#16a34a;flex:0 0 auto}.route-stop strong{display:block;font-size:16px}.route-stop small{color:#6b7280;display:block;margin-top:2px;line-height:1.3}.route-start{border:2px solid #16a34a;background:#f0fdf4}.route-end{border:2px solid #1f2937}.route-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.route-actions button{padding:14px;font-size:15px}.open-route{background:#16a34a;color:#fff}.cancel-route{background:#e5e7eb;color:#111827}.route-info{font-size:12px;color:#6b7280;margin-top:12px}
+</style>
+</head>
+<body>
+<header><h1>Fahrten</h1><div class="sub" id="counter"></div></header>
+<main id="app"></main>
+<div class="modal" id="routeModal" hidden>
+ <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="routeTitle">
+  <h2 id="routeTitle">Restroute auswählen</h2>
+  <p>Der aktuelle Stopp ist der Startpunkt. Wähle aus, welche weiteren Stopps in Google Maps angefahren werden sollen.</p>
+  <div class="route-list" id="routeList"></div>
+  <div class="route-actions"><button class="cancel-route" onclick="closeRouteSelection()">Abbrechen</button><button class="open-route" onclick="openSelectedRoute()">Route in Google Maps</button></div>
+  <div class="route-info">Die Reihenfolge bleibt wie in deiner Fahrtenliste. Auf Smartphones kann Google Maps bei Routen mit vielen Zwischenstopps technisch begrenzen.</div>
+ </section>
+</div>
+<script>
+const stops=[
+{time:"06:44",name:"Mima Nagel",address:"Talwiesenweg 10, Karlsruhe",klass:"7"},
+{time:"07:01",name:"Luis Salzer",address:"Schwarzwaldstraße 19, Ettlingen",klass:"2"},
+{time:"07:22",name:"Tyler Griffith",address:"Steinhofstraße 6, Karlsruhe",klass:"SoKiGa",note:"Erst ab 22.09"},
+{time:"07:28",name:"Alexander Ueberle",address:"Brühlstraße 20, Karlsruhe",klass:"1",note:"Erst ab 16.09"},
+{time:"07:32",name:"Noel-Leonardo Casano",address:"Ellmendinger Straße 41, Karlsruhe",klass:"1",note:"Erst ab 16.09"},
+{time:"07:37",name:"Rozerin Sakiz",address:"Reichenbachstraße 16, Karlsruhe",klass:"SoKiGa"},
+{time:"07:43",name:"Amando Bah",address:"Pfinzstraße 16a, Karlsruhe",klass:"5"},
+{time:"07:55",name:"Parzival-Schulzentrum",address:"Parzivalstraße 1, Karlsruhe",klass:"—"},
+{time:"08:14",name:"—",address:"August-Bebel-Straße 89, Karlsruhe",klass:"—"}
+];
+let i=Number(localStorage.getItem("fahrten_index")||0);
+if(!Number.isInteger(i)||i<0||i>=stops.length)i=0;
+
+function save(){localStorage.setItem("fahrten_index",i)}
+function render(){
+ const s=stops[i],pct=(i/(stops.length-1))*100;
+ document.getElementById("counter").textContent=`Stopp ${i+1} von ${stops.length}`;
+ document.getElementById("app").innerHTML=`
+ <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
+ <section class="card" id="swipeCard">
+  <div class="label">Nächster Stopp · ${s.time} Uhr</div><div class="name">${esc(s.name)}</div><div class="address">${esc(s.address)}</div>
+  ${s.note?`<div class="note">📝 Hinweis: ${esc(s.note)}</div>`:""}
+  <div class="meta"><span class="badge">Klasse: ${esc(s.klass)}</span><span class="badge">${i+1}/${stops.length}</span></div>
+  <div class="swipe"><span>← zurück</span><span>wischen</span><span>weiter →</span></div>
+  <button class="go" onclick="showRouteSelection()">🚗 Start – Restroute auswählen</button>
+  ${i<stops.length-1?'<button class="next" onclick="next()">✓ Angekommen – nächster Stopp</button>':'<button class="next" onclick="finish()">✓ Fahrt beenden</button>'}
+  <div class="nav"><button onclick="prev()" ${i===0?"disabled":""}>← Vorheriger</button><button onclick="next()" ${i===stops.length-1?"disabled":""}>Nächster →</button></div>
+  <button class="secondary" onclick="reset()">Liste zurücksetzen</button>
+ </section>
+ <p class="notice">Mit „Start“ öffnest du zuerst eine Auswahl. Dort kannst du verbleibende Zwischenstopps abwählen und anschließend nur die gewünschten Ziele an Google Maps übergeben.</p>`;
+ attachSwipe();
+}
+function showRouteSelection(){
+ const list=document.getElementById("routeList");
+ list.innerHTML=stops.slice(i).map((s,index)=>{
+  const absoluteIndex=i+index;
+  const isStart=index===0;
+  return `<label class="route-stop ${isStart?"route-start":""}">
+   <input type="checkbox" class="routeCheck" data-index="${absoluteIndex}" ${isStart?"checked disabled":"checked"}>
+   <span><strong>${isStart?"Start: ":""}${esc(s.time)} Uhr · ${esc(s.name)}</strong><small>${esc(s.address)}${s.note?" · Hinweis: "+esc(s.note):""}</small></span>
+  </label>`;
+ }).join("");
+ document.getElementById("routeModal").hidden=false;
+}
+function closeRouteSelection(){document.getElementById("routeModal").hidden=true}
+function openSelectedRoute(){
+ const selected=[...document.querySelectorAll(".routeCheck:checked")].map(el=>stops[Number(el.dataset.index)]);
+ if(!selected.length){alert("Bitte wähle mindestens einen Stopp aus.");return}
+ if(selected.length===1){
+  location.href="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(selected[0].address)+"&travelmode=driving&dir_action=navigate";
+  return;
+ }
+ const origin=selected[0].address;
+ const destination=selected[selected.length-1].address;
+ const waypoints=selected.slice(1,-1).map(s=>s.address).join("|");
+ let url="https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(origin)+"&destination="+encodeURIComponent(destination)+"&travelmode=driving";
+ if(waypoints)url+="&waypoints="+encodeURIComponent(waypoints);
+ location.href=url;
+}
+function next(){if(i<stops.length-1){i++;save();render();scrollTo(0,0)}}
+function prev(){if(i>0){i--;save();render();scrollTo(0,0)}}
+function reset(){if(confirm("Fortschritt wirklich zurücksetzen?")){i=0;save();render()}}
+function finish(){alert("Fahrt abgeschlossen.")}
+function attachSwipe(){const el=document.getElementById("swipeCard");let x=0,y=0;el.addEventListener("touchstart",e=>{x=e.changedTouches[0].clientX;y=e.changedTouches[0].clientY},{passive:true});el.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-x,dy=e.changedTouches[0].clientY-y;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}},{passive:true})}
+function esc(x){return String(x).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+render();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+</script>
+</body>
+</html>
